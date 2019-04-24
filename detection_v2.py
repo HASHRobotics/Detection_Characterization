@@ -40,8 +40,6 @@ def get_good_contours(c, new_width, new_height):
     return l
 
 def circular_mask(radius, height, width, layer = 3):
-    # background = np.ones((height, width))
-    # background[int(height/2),int(width/2)] = 23987
     a= int(height/2)
     b = int(width/2)
     y, x = np.ogrid[-a:height-a, -b:width-b]
@@ -57,82 +55,139 @@ def circular_mask(radius, height, width, layer = 3):
 
 def get_centroid(img):
 
-    new_height, new_width, channels = img.shape 
+    hue_min = 80
+    hue_max = 100
+    new_height, new_width, channels = img.shape
+    new_height = 600
+    new_width = 900
+    img = imutils.resize(img, height=new_height, width=new_width)
+##MASK in
+    new_height, new_width, channels = img.shape
+    center_mask = circular_mask(170, new_height, new_width,3)
+    img = np.multiply(center_mask,img)
+    img = img.astype("uint8")
+
+#Mask Out
+    center_mask = circular_mask(350,new_height, new_width, 3)
+    center_mask = 1 - center_mask
+    img = np.multiply(center_mask,img)
+    img = img.astype("uint8")
+
     output = img
-    PINK_MIN = np.array([75,5,0], np.uint8)
-    PINK_MAX = np.array([90,255,255], np.uint8)
-
-
-    # Apply the pink filter
+    COLOR_MIN = np.array([hue_min,30,0], np.uint8)
+    COLOR_MAX = np.array([hue_max,255,255], np.uint8)
     output = cv2.cvtColor(output, cv2.COLOR_BGR2HSV)
-
-    frame_threshed = cv2.inRange(output, PINK_MIN, PINK_MAX)
-
+    frame_threshed = cv2.inRange(output, COLOR_MIN, COLOR_MAX)
     frame_threshed = frame_threshed/255.0
-    # struct1 = np.array([[1,1,1],[1,1,1],[1,1,1]])
-    struct1 = np.array([[0,1,0],[1,1,1],[0,1,0]])
-    # frame_threshed = scipy.ndimage.morphology.binary_dilation(frame_threshed, iterations=1)
+    struct1 = np.array([[1,1,1],[1,1,1],[1,1,1]])
+    # struct1 = np.array([[0,1,0],[1,1,1],[0,1,0]])
     frame_threshed = scipy.ndimage.morphology.binary_erosion(frame_threshed, structure = struct1, iterations = 1)
-    # frame_threshed = scipy.ndimage.morphology.binary_dilation(frame_threshed, iterations = 4)
+    # frame_threshed = scipy.ndimage.morphology.binary_dilation(frame_threshed, iterations = 3 )
     frame_threshed = frame_threshed*255.0
     frame_threshed = frame_threshed.astype("uint8")
+    #cv2.imwrite(''+str(self.counter)+'.jpg', frame_threshed) 
 
-    '''
-    DISPLAYING OF IMAGES AND THRESHOLD
-    '''
-
-    # Display the threshed frame and the original image
-    # cv2.imwrite("./results2/" + str(i) + ".png", frame_threshed)
-    #cv2.imshow('frame',frame_threshed)
-    #cv2.imshow('actual_image', img)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-
-    should_display = 1
-    if should_display == 1:
-
-        '''
-        #DISPLAYING OF IMAGES AND THRESHOLD
-        '''
-
-        # Display the threshed frame and the original image
-        # cv2.imshow('frame',frame_threshed)
-        # cv2.imshow(q'image', img)
-        # frame_threshed = cv2.cvtColor(frame_threshed, cv2.COLOR_BGR2GRAY)
-        # im2, contours = cv2.findContours(frame_threshed, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        im2, contours,_ = cv2.findContours(frame_threshed, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    im2, contours, heirarchy = cv2.findContours(frame_threshed, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    if (len(contours) == 0):
+        print("No contour detected for image")
+        return -1,-1
+   
+    else:
+        #contours = self.get_good_contours(im2, new_width, new_height)
         if (len(contours) == 0):
-            stro = "No contour detected for image"
-            print(stro)
+            print("No Good contour detected for image")
             return -1,-1
 
-        # Get good contours
-        # contours = get_good_contours(im2, new_width, new_height)
-        # if (len(contours) == 0):
-        #     stro = "No Good contour detected for image"
-        #     print(stro)
-        #     return -1,-1
+# Detecting max contour & making sure it is bigger than a threshold
+        if (len(contours) > 0):
+            c = max(contours, key=cv2.contourArea)
+            # if not cv2.contourArea(c) < 0:
+            x,y,w,h = cv2.boundingRect(c)
+            cX = int(x + (w / 2))
+            cY = int(y + (h / 2))
+#CHANGE THIS PATH AS PER THE USE
+            cv2.rectangle(img,(x,y),(x+w,y+h),(0,0,255),2)
+            cv2.circle(img, (cX, cY), 1, (255, 255, 255), -1)
+            cv2.putText(img, "centroid", (cX - 25, cY - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            # cv2.imshow("Marking_centroid", img)
+            return cX,cY,img
+
+    # new_height, new_width, channels = img.shape 
+    # output = img
+    # PINK_MIN = np.array([90,5,0], np.uint8)
+    # PINK_MAX = np.array([110,255,255], np.uint8)
 
 
-        # Detecting max contour & making sure it is bigger than a threshold
-        c = max(contours, key=cv2.contourArea)
-        if cv2.contourArea(c) < 0:
-            stro = "Detected contour too small"
-            print(stro)
-            return -1,-1
+    # # Apply the pink filter
+    # output = cv2.cvtColor(output, cv2.COLOR_BGR2HSV)
+
+    # frame_threshed = cv2.inRange(output, PINK_MIN, PINK_MAX)
+
+    # frame_threshed = frame_threshed/255.0
+    # # struct1 = np.array([[1,1,1],[1,1,1],[1,1,1]])
+    # struct1 = np.array([[0,1,0],[1,1,1],[0,1,0]])
+    # # frame_threshed = scipy.ndimage.morphology.binary_dilation(frame_threshed, iterations=1)
+    # frame_threshed = scipy.ndimage.morphology.binary_erosion(frame_threshed, structure = struct1, iterations = 1)
+    # # frame_threshed = scipy.ndimage.morphology.binary_dilation(frame_threshed, iterations = 4)
+    # frame_threshed = frame_threshed*255.0
+    # frame_threshed = frame_threshed.astype("uint8")
+
+    # '''
+    # DISPLAYING OF IMAGES AND THRESHOLD
+    # '''
+
+    # # Display the threshed frame and the original image
+    # # cv2.imwrite("./results2/" + str(i) + ".png", frame_threshed)
+    # #cv2.imshow('frame',frame_threshed)
+    # #cv2.imshow('actual_image', img)
+    # # cv2.waitKey(0)
+    # # cv2.destroyAllWindows()
+
+    # should_display = 1
+    # if should_display == 1:
+
+    #     '''
+    #     #DISPLAYING OF IMAGES AND THRESHOLD
+    #     '''
+
+    #     # Display the threshed frame and the original image
+    #     # cv2.imshow('frame',frame_threshed)
+    #     # cv2.imshow(q'image', img)
+    #     # frame_threshed = cv2.cvtColor(frame_threshed, cv2.COLOR_BGR2GRAY)
+    #     # im2, contours = cv2.findContours(frame_threshed, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    #     im2, contours,_ = cv2.findContours(frame_threshed, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    #     if (len(contours) == 0):
+    #         stro = "No contour detected for image"
+    #         print(stro)
+    #         return -1,-1
+
+    #     # Get good contours
+    #     # contours = get_good_contours(im2, new_width, new_height)
+    #     # if (len(contours) == 0):
+    #     #     stro = "No Good contour detected for image"
+    #     #     print(stro)
+    #     #     return -1,-1
 
 
-        x, y, w, h = cv2.boundingRect(c)
-        cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    #     # Detecting max contour & making sure it is bigger than a threshold
+    #     c = max(contours, key=cv2.contourArea)
+    #     if cv2.contourArea(c) < 0:
+    #         stro = "Detected contour too small"
+    #         print(stro)
+    #         return -1,-1
 
-        # Drawing contours over the original image. Just for validation
-        # cv2.drawContours(img, contours, -1, (0, 0, 255), 3)
 
-        cX = int(x + (w / 2))
-        cY = int(y + (h / 2))
+    #     x, y, w, h = cv2.boundingRect(c)
+    #     cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-        cv2.circle(img, (cX, cY), 1, (255, 255, 255), -1)
-        cv2.putText(img, "centroid", (cX - 25, cY - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+    #     # Drawing contours over the original image. Just for validation
+    #     # cv2.drawContours(img, contours, -1, (0, 0, 255), 3)
+
+    #     cX = int(x + (w / 2))
+    #     cY = int(y + (h / 2))
+
+    #     cv2.circle(img, (cX, cY), 1, (255, 255, 255), -1)
+    #     cv2.putText(img, "centroid", (cX - 25, cY - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
 
         '''
@@ -141,7 +196,7 @@ def get_centroid(img):
         # cv2.imshow("Marking_centroid", img)
         # cv2.waitKey(0)
         # cv2.destroyAllWindows()
-        return cX,cY
+        # return cX,cY
 
 if __name__ == "__main__":
     images_path = sys.argv[1]

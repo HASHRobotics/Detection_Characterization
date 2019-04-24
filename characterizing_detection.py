@@ -1,5 +1,3 @@
-
-
 import numpy as np
 import cv2
 import ipdb 
@@ -30,7 +28,6 @@ def point_click(img):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     imgplot = ax.imshow(img)
     x_c, y_c = plt.ginput(1, mouse_stop=2)[0]       #y_c is the row while x_c is the column
-    print(y_c,x_c)
     cv2.destroyAllWindows()
 
     return y_c,x_c
@@ -43,10 +40,8 @@ def find_detection_rate(error_array,distance_metric):
 if __name__ == "__main__":
 
     images_path = sys.argv[1]
-    images_path = '../image_data/'  #Remove this
-    #centroid_using_algo_csv = sys.argv[2]
-    #centroid_using_algorithm = np.genfromtxt(centroid_using_algo_csv, delimiter=',')
-    distance_metric = 80 #(in pixels)
+    #images_path = '../image_data/'  #Remove this and instead take this as a command line argument
+    distance_metric = 85 #(in pixels)
     flag = 0
     items = os.listdir(images_path)
     if('.DS_Store' in items):
@@ -61,10 +56,16 @@ if __name__ == "__main__":
 
         img = imutils.resize(img, height=new_height, width=new_width)
 
-        cX,cY = dt.get_centroid(img)
+        cX,cY,img = dt.get_centroid(img)
         y_pc,x_pc = point_click(img)
-        print("Centroid detected by algo is: ",cY,"\t",cX,"\n")
-        print("Centroid detected by point and click is: ",y_pc,"\t",x_pc,"\n")
+        # print("Centroid detected by algo is: ",cY,"\t",cX,"\n")
+        # print("Centroid detected by point and click is: ",y_pc,"\t",x_pc,"\n")
+        net_dist = ((abs(cY-y_pc))**2 + (abs(cX-x_pc))**2)**0.5
+        print("Distance between the estimated and actual centroid is ",int(net_dist)," pixels.")
+        if(net_dist<distance_metric):
+            print("Rover detected correctly")
+        else:
+            print("Rover detected incorrectly")
         print("\n ===================================================================================================== \n")
 
         if(flag==0 and cX!=-1):
